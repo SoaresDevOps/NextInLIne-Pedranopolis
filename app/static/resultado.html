@@ -2,159 +2,91 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Resultado</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.4/howler.min.js"></script>
+    <title>Painel</title>
+
     <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f4f4f9;
             margin: 0;
-            padding: 0;
+            background: black;
+            color: white;
+            font-family: Arial;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
+            text-align: center;
         }
 
         .container {
-            background-color: #ffffff;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            max-width: 600px;
             width: 100%;
-            text-align: center;
-            /* Garantir que fique acima do vídeo quando aparecer */
-            z-index: 10; 
-            position: relative;
         }
 
         h1 {
-            font-size: 24px;
-            color: #333;
-            margin-bottom: 10px;
+            font-size: 40px;
+            margin: 10px 0;
         }
 
-        #displaySala, #displaySenha, #displayDoutor {
-            font-size: 28px;
-            color: #007bff;
-            margin-bottom: 30px;
+        .valor {
+            font-size: 60px;
             font-weight: bold;
-        }
-
-        audio {
-            display: none;
-        }
-        
-        /* Adorno e posicionamento do vídeo educativo */
-        #meuVideo {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            object-fit: cover;
-            background-color: #000;
-            z-index: 1; /* O vídeo fica no fundo */
+            margin-bottom: 30px;
         }
     </style>
 </head>
+
 <body>
-    <audio id="meuAudio">
-        <source src="{{ url_for('static', filename='audio/som.mp3') }}" type="audio/mpeg">
-    </audio>
-    
-    <video id="meuVideo" autoplay muted>
-        <source src="{{ url_for('static', filename='videos/video1.mp4') }}" type="video/mp4">
-        Seu navegador não suporta a tag de vídeo.
-    </video>
 
-    <div class="container" id="painelSenha" style="display: none;">
-        <div>
-            <h1>Sala:</h1>
-            <div id="displaySala">Nenhuma sala ainda</div>
-        </div>
-        <div>
-            <h1>Paciente:</h1>
-            <div id="displaySenha">Nenhuma senha ainda</div>
-        </div>
-        <div>
-            <h1>Profissional:</h1>
-            <div id="displayDoutor">Nenhum doutor(a) ainda</div>
-        </div>
-    </div>
+<div class="container">
+    <h1>Sala:</h1>
+    <div id="sala" class="valor">-</div>
 
-    <script>
-        const socket = io();
-        const audio = document.getElementById('meuAudio');
-        let salaAtual = "";
+    <h1>Paciente:</h1>
+    <div id="senha" class="valor">-</div>
 
-        const video = document.getElementById('meuVideo');
-        const painelSenha = document.getElementById('painelSenha');
-        let tempoExibicao; // Esta variável guardará o nosso "relógio"
+    <h1>Profissional:</h1>
+    <div id="doutor" class="valor">-</div>
+</div>
 
-        // === A LEI DA SUCESSÃO DOS VÍDEOS ===
-        // A lista com o caminho dos 5 vídeos
-        const listaVideos = [
-            "{{ url_for('static', filename='videos/video1.mp4') }}",
-            "{{ url_for('static', filename='videos/video2.mp4') }}",
-            "{{ url_for('static', filename='videos/video3.mp4') }}",
-            "{{ url_for('static', filename='videos/video4.mp4') }}",
-        ];
-        
-        let indiceVideoAtual = 0; // Começamos no primeiro vídeo
+<!-- 🔊 ÁUDIO SIMPLES -->
+<audio id="audio" preload="auto">
+    <source src="{{ url_for('static', filename='audio/som.mp3') }}" type="audio/mpeg">
+</audio>
 
-        // Quando o vídeo atual terminar, ele passa para o próximo
-        video.addEventListener('ended', () => {
-            indiceVideoAtual++; 
-            
-            // Se chegou ao fim da lista, volta para o princípio (0)
-            if (indiceVideoAtual >= listaVideos.length) {
-                indiceVideoAtual = 0;
-            }
-            
-            // Atualiza a fonte do vídeo e o reproduz
-            video.src = listaVideos[indiceVideoAtual];
-            video.play().catch(e => console.error("Erro ao reproduzir o próximo vídeo:", e));
-        });
-        // ====================================
+<script>
+    const socket = io();
 
-        socket.on('receive_senha', (data) => {
-            document.getElementById('displaySenha').textContent = data.senha || 'Nenhuma senha ainda';
+    const audio = document.getElementById('audio');
 
-            // 1. Pausamos o vídeo educativo e o ocultamos da visão
-            video.pause();
-            video.style.display = "none";
+    // 🔥 força carregar áudio
+    audio.load();
 
-            // 2. Trazemos à luz o painel com a nova senha
-            painelSenha.style.display = "block"; 
+    socket.on('receive_chamada', (data) => {
 
-            // 3. Tocamos a trombeta (o som da chamada)
-            audio.play().catch(error => {
-                console.error("Erro ao reproduzir o áudio:", error);
-            });
+        // Atualiza tela
+        document.getElementById('sala').innerText = data.sala || "-";
+        document.getElementById('senha').innerText = data.senha || "-";
+        document.getElementById('doutor').innerText = data.doutor || "-";
 
-            // 4. Limpamos qualquer contagem anterior
-            clearTimeout(tempoExibicao);
+        // 🔊 TOCA SOM (forma mais simples e confiável)
+        try {
+            audio.currentTime = 0;
+            audio.play();
+        } catch (e) {
+            console.log("Erro no áudio:", e);
+        }
+    });
 
-            // 5. Estabelecemos um tempo de 10 segundos para a senha sair de cena
-            tempoExibicao = setTimeout(() => {
-                painelSenha.style.display = "none"; // Escondemos a senha
-                video.style.display = "block";      // Mostramos o vídeo novamente
-                video.play().catch(e => console.error("Erro ao retomar o vídeo:", e)); // Retomamos de onde parou
-            }, 10000); 
-        });
+    // 🔓 LIBERA ÁUDIO (caso TV bloqueie)
+    document.body.addEventListener('click', () => {
+        audio.play().then(() => {
+            audio.pause();
+            audio.currentTime = 0;
+        }).catch(() => {});
+    }, { once: true });
 
-        socket.on('receive_sala', (data) => {
-            document.getElementById('displaySala').textContent = data.sala || 'Nenhuma sala ainda';
-            salaAtual = data.sala || "";
-        });
+</script>
 
-        socket.on('receive_doutor', (data) => {
-            document.getElementById('displayDoutor').textContent = data.doutor || 'Nenhum doutor(a) ainda';
-        });
-    </script>
 </body>
 </html>
